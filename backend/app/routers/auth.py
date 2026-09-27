@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from passlib.context import CryptContext
+import bcrypt
 from jose import jwt
 from datetime import datetime, timedelta
 from pydantic import BaseModel
@@ -13,7 +13,7 @@ import os
 load_dotenv()
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
@@ -44,7 +44,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     # Create new user
-    hashed = pwd_context.hash(data.password)
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(data.password.encode('utf-8'), salt).decode('utf-8')
     user = User(email=data.email, password_hash=hashed, name=data.name)
     db.add(user)
     await db.commit()
@@ -55,6 +56,6 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
-    if not user or not pwd_context.verify(data.password, user.password_hash):
+    if not user or not bcrypt.checkpw(data.password.encode('utf-8'), user.password_hash.encode('utf-8')):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {"token": create_token(str(user.id)), "user_id": str(user.id)}

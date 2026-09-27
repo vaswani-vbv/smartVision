@@ -32,10 +32,10 @@ def generate_synthetic_data(n=N):
 
     # ── Spike calculation (physiology-based rules) ─────────────────────────
     # Carbs are the biggest driver of glucose spike
-    spike = carbs_g * 1.2
+    spike = carbs_g * 1.8
 
     # Fiber slows absorption — reduces spike
-    spike -= fiber_g * 2.5
+    spike -= fiber_g * 1.0
 
     # Protein has a mild effect
     spike += protein_g * 0.2
@@ -130,11 +130,11 @@ def train():
     mae   = mean_absolute_error(y_test, preds)
     r2    = r2_score(y_test, preds)
 
-    print(f"\n── Model Evaluation ──────────────────")
+    print(f"\n-- Model Evaluation --")
     print(f"RMSE : {rmse:.2f} mg/dL  (target: < 25)")
     print(f"MAE  : {mae:.2f}  mg/dL  (target: < 18)")
     print(f"R²   : {r2:.3f}          (target: > 0.75)")
-    print(f"──────────────────────────────────────")
+    print(f"----------------------")
 
     # ── Save model ────────────────────────────────────────────────────────
     model_path = os.path.join(os.path.dirname(__file__), "model.pkl")

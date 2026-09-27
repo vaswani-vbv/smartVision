@@ -3,7 +3,10 @@ import LoginPage      from './pages/LoginPage';
 import RegisterPage   from './pages/RegisterPage';
 import ProfilePage    from './pages/ProfilePage';
 import GlucoseLogPage from './pages/GlucoseLogPage';
+import DashboardPage  from './pages/DashboardPage';
 import PredictionPage from './pages/PredictionPage';
+import ScanPage       from './pages/ScanPage';
+import AdminKycPage   from './pages/AdminKycPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -19,10 +22,16 @@ function App() {
           <ProtectedRoute><GlucoseLogPage /></ProtectedRoute>
         } />
         <Route path="/dashboard" element={
-          <ProtectedRoute><GlucoseLogPage /></ProtectedRoute>
+          <ProtectedRoute><DashboardPage /></ProtectedRoute>
         } />
         <Route path="/predict"  element={
           <ProtectedRoute><PredictionPage /></ProtectedRoute>
+        } />
+        <Route path="/scan"     element={
+          <ProtectedRoute><ScanPage /></ProtectedRoute>
+        } />
+        <Route path="/admin/kyc" element={
+          <ProtectedRoute><AdminKycPage /></ProtectedRoute>
         } />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

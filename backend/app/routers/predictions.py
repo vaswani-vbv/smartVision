@@ -13,12 +13,15 @@ from app.ml.predict import predict_spike
 router = APIRouter()
 
 class PredictionRequest(BaseModel):
-    carbs_g:          float
-    protein_g:        float
-    fat_g:            float
-    fiber_g:          float = 0
-    pre_meal_glucose: float
-    time_of_day:      Optional[int] = None
+    food_name:          Optional[str] = "Meal"
+    carbs_g:            float
+    protein_g:          float
+    fat_g:              float
+    fiber_g:            float = 0
+    pre_meal_glucose:   float
+    insulin_dose:       Optional[float] = 0.0
+    post_meal_activity: Optional[str] = "none"
+    time_of_day:        Optional[int] = None
 
 @router.post("/predict")
 async def make_prediction(
@@ -51,16 +54,21 @@ async def make_prediction(
         activity_level   = profile.activity_level,
         diabetes_type    = profile.diabetes_type,
         age              = profile.age,
-        weight_kg        = profile.weight_kg
+        weight_kg        = profile.weight_kg,
+        insulin_dose     = data.insulin_dose or 0.0,
+        post_meal_activity = data.post_meal_activity or "none"
     )
 
     # Save to database — store SHAP values as JSON string
     prediction = Prediction(
         user_id          = current_user.id,
+        food_name        = data.food_name or "Meal",
         carbs_g          = data.carbs_g,
         protein_g        = data.protein_g,
         fat_g            = data.fat_g,
         pre_meal_glucose = data.pre_meal_glucose,
+        insulin_dose     = data.insulin_dose or 0.0,
+        post_meal_activity = data.post_meal_activity or "none",
         time_of_day      = hour,
         activity_level   = profile.activity_level,
         predicted_spike  = result["predicted_spike"],
@@ -79,10 +87,13 @@ async def make_prediction(
         "risk_color":          result["risk_color"],
         "calories":            result["calories"],
         "input_summary": {
-            "carbs_g":   data.carbs_g,
-            "protein_g": data.protein_g,
-            "fat_g":     data.fat_g,
-            "fiber_g":   data.fiber_g
+            "food_name":          data.food_name or "Meal",
+            "carbs_g":            data.carbs_g,
+            "protein_g":          data.protein_g,
+            "fat_g":              data.fat_g,
+            "fiber_g":            data.fiber_g,
+            "insulin_dose":       data.insulin_dose or 0.0,
+            "post_meal_activity": data.post_meal_activity or "none"
         },
         "explanation": {
             "summary":     result["shap"]["summary"],
@@ -107,12 +118,18 @@ async def prediction_history(
         "total": len(predictions),
         "predictions": [
             {
-                "id":               str(p.id),
-                "predicted_spike":  p.predicted_spike,
-                "carbs_g":          p.carbs_g,
-                "pre_meal_glucose": p.pre_meal_glucose,
-                "predicted_at":     p.predicted_at,
-                "shap_values":      json.loads(p.shap_values) if p.shap_values else None
+                "id":                 str(p.id),
+                "food_name":          p.food_name or "Meal",
+                "carbs_g":            p.carbs_g or 0.0,
+                "protein_g":          p.protein_g or 0.0,
+                "fat_g":              p.fat_g or 0.0,
+                "pre_meal_glucose":   p.pre_meal_glucose or 100.0,
+                "insulin_dose":       p.insulin_dose or 0.0,
+                "post_meal_activity": p.post_meal_activity or "none",
+                "predicted_spike":    p.predicted_spike or 0.0,
+                "predicted_post_meal":(p.pre_meal_glucose or 100.0) + (p.predicted_spike or 0.0),
+                "predicted_at":       (p.predicted_at.isoformat() + ("Z" if p.predicted_at and not p.predicted_at.tzinfo else "")) if p.predicted_at else None,
+                "shap_values":        json.loads(p.shap_values) if p.shap_values else None
             }
             for p in predictions
         ]

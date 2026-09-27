@@ -12,7 +12,21 @@ class User(Base):
     email         = Column(String(255), unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     name          = Column(String(100))
+    profile_picture_url = Column(String(500), nullable=True)
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
+
+class GovtIdVerification(Base):
+    __tablename__ = 'govt_id_verifications'
+    id                  = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id             = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), unique=True)
+    id_type             = Column(String(20), nullable=False)   # aadhaar / pan / passport / voter_id
+    id_number           = Column(String(50), nullable=False)
+    document_image_url  = Column(String(500), nullable=True)
+    status              = Column(String(20), default='pending') # pending / verified / rejected
+    rejection_reason    = Column(Text, nullable=True)
+    submitted_at        = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at          = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 
 class MedicalProfile(Base):
     __tablename__ = 'medical_profiles'
@@ -40,10 +54,13 @@ class Prediction(Base):
     __tablename__ = 'predictions'
     id              = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id         = Column(UUID(as_uuid=True), ForeignKey('users.id'))
+    food_name       = Column(String(100))       # detected or user-entered food name
     carbs_g         = Column(Float)
     protein_g       = Column(Float)
     fat_g           = Column(Float)
     pre_meal_glucose= Column(Float)
+    insulin_dose    = Column(Float, default=0.0)   # Bolus insulin units (0.0 for none)
+    post_meal_activity = Column(String(30), default='none') # none / light_walk / moderate_exercise / active_workout
     time_of_day     = Column(Integer)          # hour 0-23
     activity_level  = Column(String(20))
     predicted_spike = Column(Float)

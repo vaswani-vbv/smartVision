@@ -7,39 +7,53 @@ export default function PredictionPage() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<any>(null);
   const [lastReading, setLastReading] = useState<any>(null);
+  
+  const [isType1, setIsType1] = useState(false);
   const [form, setForm] = useState({
     carbs_g: '',
     protein_g: '',
     fat_g: '',
     fiber_g: '',
     pre_meal_glucose: '',
+    insulin_dose: '0',
+    post_meal_activity: 'none',
   });
 
   useEffect(() => {
-    const fetchLatestGlucose = async () => {
+    const fetchLatestGlucoseAndProfile = async () => {
       setFetchingGlucose(true);
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(
-          'http://localhost:8000/api/glucose/history?days=7',
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data = await response.json();
-        if (data.readings && data.readings.length > 0) {
-          const latest = data.readings[0];
+        const [gRes, pRes] = await Promise.all([
+          fetch('http://127.0.0.1:8000/api/glucose/history?days=7', {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch('http://127.0.0.1:8000/api/users/profile', {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const gData = await gRes.json();
+        if (gData.readings && gData.readings.length > 0) {
+          const latest = gData.readings[0];
           setLastReading(latest);
           setForm(prev => ({
             ...prev,
             pre_meal_glucose: latest.value_mgdl.toString(),
           }));
         }
+
+        const pData = await pRes.json();
+        if (pData && pData.diabetes_type === 'type1') {
+          setIsType1(true);
+        }
       } catch (err) {
-        console.error('Could not fetch latest glucose');
+        console.error('Could not fetch latest glucose or profile');
       } finally {
         setFetchingGlucose(false);
       }
     };
-    fetchLatestGlucose();
+    fetchLatestGlucoseAndProfile();
   }, []);
 
   const update = (field: string, value: string) =>
@@ -52,7 +66,7 @@ export default function PredictionPage() {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        'http://localhost:8000/api/predictions/predict',
+        'http://127.0.0.1:8000/api/predictions/predict',
         {
           method: 'POST',
           headers: {
@@ -65,6 +79,8 @@ export default function PredictionPage() {
             fat_g: parseFloat(form.fat_g),
             fiber_g: parseFloat(form.fiber_g) || 0,
             pre_meal_glucose: parseFloat(form.pre_meal_glucose),
+            insulin_dose: parseFloat(form.insulin_dose) || 0,
+            post_meal_activity: form.post_meal_activity,
           }),
         }
       );
@@ -102,9 +118,9 @@ export default function PredictionPage() {
       <Navbar />
       <div style={styles.container}>
         <div style={styles.card}>
-          <h2 style={styles.title}>Glucose Spike Prediction</h2>
+          <h2 style={styles.title}>Manual Glucose Spike Prediction</h2>
           <p style={styles.subtitle}>
-            Enter your meal details to predict how your glucose will respond
+            Enter your meal details manually to predict how your glucose will respond
           </p>
 
           {error && <div style={styles.error}>{error}</div>}
@@ -203,6 +219,38 @@ export default function PredictionPage() {
                   You can manually override this value
                 </span>
               )}
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Bolus Insulin Dose (Units)
+                {isType1 && (
+                  <span style={{ marginLeft: '8px', fontSize: '11px', color: '#2980b9', fontWeight: 'normal' }}>
+                    Type 1 Diabetic
+                  </span>
+                )}
+              </label>
+              <input
+                style={styles.input}
+                type="number"
+                placeholder="0"
+                value={form.insulin_dose}
+                onChange={e => update('insulin_dose', e.target.value)}
+              />
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>Post-Meal Activity</label>
+              <select
+                style={styles.input}
+                value={form.post_meal_activity}
+                onChange={e => update('post_meal_activity', e.target.value)}
+              >
+                <option value="none">Rest / None (0 mg/dL)</option>
+                <option value="light_walk">15m Light Walk (-15 mg/dL)</option>
+                <option value="30m_exercise">30m Exercise (-25 mg/dL)</option>
+                <option value="45m_workout">45m Workout (-35 mg/dL)</option>
+              </select>
             </div>
           </div>
 

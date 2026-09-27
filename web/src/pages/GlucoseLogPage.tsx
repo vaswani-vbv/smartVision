@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import api from '../lib/api';
 import { GlucoseReading } from '../types';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceArea
+} from 'recharts';
 
 export default function GlucoseLogPage() {
   const [value,       setValue]       = useState('');
@@ -124,7 +134,43 @@ export default function GlucoseLogPage() {
               No readings logged yet
             </p>
           ) : (
-            <table style={styles.table}>
+            <>
+              {/* History Chart */}
+              <div style={{ height: '250px', width: '100%', marginBottom: '2rem' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart 
+                    data={[...readings].reverse().map(r => ({
+                      time: new Date(r.measured_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' }),
+                      value: r.value_mgdl,
+                      zone: getZone(r.value_mgdl)
+                    }))} 
+                    margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                    <XAxis dataKey="time" tick={{ fontSize: 11, fill: '#888' }} tickMargin={10} minTickGap={30} />
+                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11, fill: '#888' }} axisLine={false} tickLine={false} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      labelStyle={{ color: '#666', marginBottom: '4px', fontSize: '12px' }}
+                    />
+                    <ReferenceArea y1={70} y2={140} fill="#27ae60" fillOpacity={0.08} />
+                    <ReferenceArea y1={140} y2={180} fill="#f39c12" fillOpacity={0.08} />
+                    <ReferenceArea y1={180} fill="#e74c3c" fillOpacity={0.08} />
+                    <ReferenceArea y2={70} fill="#e74c3c" fillOpacity={0.08} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="value" 
+                      name="Glucose (mg/dL)"
+                      stroke="#2E86C1" 
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: '#2E86C1', strokeWidth: 2, stroke: '#fff' }}
+                      activeDot={{ r: 6 }} 
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <table style={styles.table}>
               <thead>
                 <tr>
                   <th style={styles.th}>Value</th>
@@ -162,6 +208,7 @@ export default function GlucoseLogPage() {
                 ))}
               </tbody>
             </table>
+            </>
           )}
         </div>
       </div>

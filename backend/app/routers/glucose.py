@@ -48,7 +48,7 @@ async def log_glucose(
         "reading_id":   str(reading.id),
         "value_mgdl":   reading.value_mgdl,
         "reading_type": reading.reading_type,
-        "measured_at":  reading.measured_at
+        "measured_at":  reading.measured_at.isoformat() + ("Z" if reading.measured_at and not reading.measured_at.tzinfo else "")
     }
 
 @router.get("/history")
@@ -74,7 +74,7 @@ async def get_history(
                 "value_mgdl":   r.value_mgdl,
                 "reading_type": r.reading_type,
                 "notes":        r.notes,
-                "measured_at":  r.measured_at
+                "measured_at":  r.measured_at.isoformat() + ("Z" if r.measured_at and not r.measured_at.tzinfo else "") if r.measured_at else None
             }
             for r in readings
         ]

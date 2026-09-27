@@ -22,19 +22,31 @@ ACTIVITY_LEVEL_MAP = {
     "active":    3
 }
 
+POST_MEAL_ACTIVITY_IMPACT = {
+    "none": 0.0,
+    "light_walk": -15.0,
+    "15m_walk": -15.0,
+    "moderate_exercise": -25.0,
+    "30m_exercise": -25.0,
+    "active_workout": -35.0,
+    "45m_workout": -35.0
+}
+
 # Human readable feature names for the frontend
 FEATURE_LABELS = {
-    "carbs_g":          "Carbohydrates",
-    "protein_g":        "Protein",
-    "fat_g":            "Fat",
-    "fiber_g":          "Fiber",
-    "calories":         "Total Calories",
-    "pre_meal_glucose": "Pre-meal Glucose",
-    "time_of_day":      "Time of Day",
-    "activity_level":   "Activity Level",
-    "diabetes_type":    "Diabetes Type",
-    "age":              "Age",
-    "weight_kg":        "Weight"
+    "carbs_g":            "Carbohydrates",
+    "protein_g":          "Protein",
+    "fat_g":              "Fat",
+    "fiber_g":            "Fiber",
+    "calories":           "Total Calories",
+    "pre_meal_glucose":   "Pre-meal Glucose",
+    "insulin_dose":       "Insulin Dose (Units)",
+    "post_meal_activity": "Post-Meal Activity",
+    "time_of_day":        "Time of Day",
+    "activity_level":     "Activity Level",
+    "diabetes_type":      "Diabetes Type",
+    "age":                "Age",
+    "weight_kg":          "Weight"
 }
 
 def load_model():
@@ -61,7 +73,9 @@ def predict_spike(
     activity_level:   str,
     diabetes_type:    str,
     age:              int,
-    weight_kg:        float
+    weight_kg:        float,
+    insulin_dose:     float = 0.0,
+    post_meal_activity: str = "none"
 ) -> dict:
 
     data     = load_model()
@@ -84,9 +98,18 @@ def predict_spike(
         "weight_kg":        weight_kg
     }])[features]
 
-    # ── Prediction ────────────────────────────────────────────────────────
-    predicted_spike     = float(model.predict(input_df)[0])
-    predicted_spike     = max(0, round(predicted_spike, 1))
+    # ── Base Model Prediction ─────────────────────────────────────────────
+    base_spike = float(model.predict(input_df)[0])
+
+    # ── Insulin & Post-Meal Activity Adjustments ───────────────────────────
+    # Bolus insulin lowers spike (~ -12.5 mg/dL per unit)
+    insulin_effect = round(-12.5 * max(0.0, insulin_dose), 1)
+
+    # Post-meal exercise/walking blunts spike
+    act_key = (post_meal_activity or "none").lower()
+    activity_effect = POST_MEAL_ACTIVITY_IMPACT.get(act_key, 0.0)
+
+    predicted_spike = round(max(0, base_spike + insulin_effect + activity_effect), 1)
     predicted_post_meal = round(pre_meal_glucose + predicted_spike, 1)
 
     # ── Risk level ────────────────────────────────────────────────────────
@@ -109,6 +132,13 @@ def predict_spike(
     for i, feature in enumerate(features):
         shap_dict[feature] = round(float(shap_values[0][i]), 2)
 
+    # Explicitly include Insulin Dose & Post-Meal Activity in SHAP dict if present
+    if insulin_dose > 0:
+        shap_dict["insulin_dose"] = round(insulin_effect, 1)
+
+    if act_key in POST_MEAL_ACTIVITY_IMPACT and POST_MEAL_ACTIVITY_IMPACT[act_key] != 0:
+        shap_dict["post_meal_activity"] = round(activity_effect, 1)
+
     # Sort by absolute impact — biggest drivers first
     sorted_shap = sorted(
         shap_dict.items(),
@@ -116,7 +146,7 @@ def predict_spike(
         reverse=True
     )
 
-    # Top 5 factors with human readable labels
+    # Top factors with human readable labels
     top_factors = []
     for feature, value in sorted_shap[:5]:
         direction = "increases" if value > 0 else "decreases"

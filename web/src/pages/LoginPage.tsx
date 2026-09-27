@@ -11,7 +11,7 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      const response = await fetch('http://127.0.0.1:8000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -23,11 +23,19 @@ export default function LoginPage() {
 
       if (response.ok && data.token) {
         localStorage.setItem('token', data.token);
+        const cleanEmail = email.trim().toLowerCase();
+        localStorage.setItem('userEmail', cleanEmail);
         console.log('Token stored!');
-        window.location.href = '/dashboard';
+
+        if (cleanEmail === 'admin@smartvision.com') {
+          window.location.href = '/admin/kyc';
+        } else {
+          window.location.href = '/dashboard';
+        }
       } else {
         setError(data.detail || 'Login failed');
       }
+
     } catch (err) {
       console.error('Fetch error:', err);
       setError('Cannot connect to server');
